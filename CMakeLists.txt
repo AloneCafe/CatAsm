@@ -1,0 +1,6 @@
+PROJECT("CatAsm")
+set(CMAKE_C_STANDARD 99)
+SET(CMAKE_BUILE_TYPE DEBUG)
+SET(CMAKE_C_FLAGS_DEBUG "-g -Wall")
+SET(SOURCE_FILES catasm.c labelmap.c labelmap.h comdef.h)
+ADD_EXECUTABLE(catasm ${SOURCE_FILES})
