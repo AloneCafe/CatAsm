@@ -1,3 +1,6 @@
+# cmake temp build directory
+cmake-build-debug
+
 # Prerequisites
 *.d
 
