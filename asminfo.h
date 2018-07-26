@@ -30,22 +30,24 @@ typedef struct {
 	Arg_type type;
 	union {
 		Byte reg;
-		Byte inline_num;
-		Dword extend_num;
+		Byte byte_num;
+		Word word_num;
+		Dword dword_num;
 		Dword address;
 		Dword num;
-		char label_name[MAX_LABEL_LENGTH];
+		char label_name[MAX_STRING_LENGTH];
+		char string[MAX_STRING_LENGTH];
 	}u;
 }Arg_info;
 
 typedef struct {
-	char name[10];
+	char name[20];
 	int argnum;
 	Arg_info arg[3];
 }Instruction;
 
 typedef struct {
-	char name[MAX_LABEL_LENGTH];
+	char name[MAX_STRING_LENGTH];
 }Label;
 
 typedef struct {
@@ -53,11 +55,16 @@ typedef struct {
 	Instruction inst;
 }Label_instruction;
 
+typedef struct {
+	char name[20];
+	Arg_info arg[100];
+}Fake_instruction;
+
 typedef enum {
 	RT_NULL,
 	RT_LABEL,
 	RT_INSTRUCTION,
-	RT_PRECODE,
+	RT_FAKE_INSTRUCTION,
 	RT_LABEL_AND_INSTRUCTION
 }Row_type;
 
@@ -67,11 +74,12 @@ typedef struct {
 		Instruction inst;
 		Label label;
 		Label_instruction label_inst;
-		// TODO Precode
+		Fake_instruction fake_inst;
 	}u;
 }Row_info;
 
 extern Inst_map_info inst_info[];
+extern Fake_inst_map_info fake_inst_info[];
 
 int strcmpci(char *s1, char *s2);
 int get_inst_arg_num(char *inst);

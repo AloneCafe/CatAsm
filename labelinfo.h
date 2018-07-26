@@ -5,7 +5,7 @@
 #include "comdef.h"
 
 typedef struct {
-	char label[MAX_LABEL_LENGTH];
+	char label[MAX_STRING_LENGTH];
 	Dword addr;
 }Label_info;
 

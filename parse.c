@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "asminfo.h"
 
 char *input_path, *output_path;
 int current_line;
@@ -342,7 +343,7 @@ int escape_str_to_num(char *ch, int *res) {
 
 int parse_arg(char *ch, Arg_info *arginfo) {
 	int state = 0, i;
-	char arg_buff[50], *arg_p = arg_buff;
+	char arg_buff[500], *arg_p = arg_buff;
 	int num;
 	Byte reg;
 
@@ -679,10 +680,13 @@ int parse_line(char *ch, Row_info *row) {
 	char arg_buff[100], *arg_p = arg_buff;
 	char label_or_inst_buff[100], *label_or_inst_p = label_or_inst_buff;
 	char inst_buff[100], *inst_p = inst_buff;
-	int argnum;
+	int argnum = 0;
 
 	assert(ch);
 	assert(row);
+
+	// fill row struct with zero.
+	memset(row, 0, sizeof(*row));
 
 	for (i = 0; ; i++) {
 		printf("line_state = %d\n", state);
@@ -692,11 +696,9 @@ int parse_line(char *ch, Row_info *row) {
 				*(label_or_inst_p++) = ch[i];
 				state = 1;
 			}
-			else if (IS_POUND(ch[i])) {
-				// TODO Precode
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
+			else if (IS_DOT(ch[i])) {
+				// TODO fakecode
+				state = 10;
 			}
 			else if (IS_SPACE(ch[i])) {
 			}
@@ -974,6 +976,74 @@ int parse_line(char *ch, Row_info *row) {
 			}
 			break;
 
+        case 10:
+            if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
+                *(inst_p++) = ch[i];
+            }
+            else if (IS_SPACE(ch[i])) {
+                *inst_p = 0;
+                state = 11;
+            }
+            else if (IS_TERMINATOR(ch[i])) {
+                row->type = RT_FAKE_INSTRUCTION;
+                strcpy(row->u.fake_inst.name, inst_buff);
+                return 1;
+            }
+            else {
+                sprintf(current_error, "illegal character \'%c\'", ch[i]);
+                PRINT_ERROR(current_error);
+                return 0;
+            }
+		    break;
+            // TODO
+        case 11:
+            arg_p = arg_buff;
+            if (IS_TERMINATOR(ch[i])) {
+                if (argnum == 0) {
+                    row->type = RT_FAKE_INSTRUCTION;
+                    strcpy(row->u.fake_inst.name, inst_buff);
+                    return 1;
+                } else {
+                    *arg_p = 0;
+                    row->type = RT_FAKE_INSTRUCTION;
+                    strcpy(row->u.fake_inst.name, inst_buff);
+                    // TODO parse arg
+                    if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                        return 0;
+                    return 1;
+                }
+            }
+            else {
+                *(arg_p++) = ch[i];
+                state = 12;
+            }
+            break;
+
+        case 12:
+            if (IS_COMMA(ch[i])) {
+                *arg_p = 0;
+                row->type = RT_FAKE_INSTRUCTION;
+                strcpy(row->u.fake_inst.name, inst_buff);
+                // TODO parse arg
+                if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                    return 0;
+                argnum++;
+                state = 11;
+            }
+            else if (IS_TERMINATOR(ch[i])) {
+                *arg_p = 0;
+                row->type = RT_FAKE_INSTRUCTION;
+                strcpy(row->u.fake_inst.name, inst_buff);
+                // TODO parse arg
+                if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                    return 0;
+                return 1;
+            }
+            else {
+                *(arg_p++) = ch[i];
+            }
+            break;
+
 		case 30:
 			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i])) {
 				*(inst_p++) = ch[i];
@@ -1140,8 +1210,11 @@ void print_row_info(Row_info * row) {
 		printf("row->type = RT_NULL\n");
 		break;
 
-	case RT_PRECODE:
-		printf("row->type = RT_PRECODE\n");
+	case RT_FAKE_INSTRUCTION:
+		printf("row->type = RT_FAKE_INSTRUCTION\n");
+        printf("row->u.fake_inst.name = %s\n", row->u.fake_inst.name);
+        for (i = 0; row->u.fake_inst.arg[i].type != AT_NULL; i++)
+            print_arg_info(&(row->u.fake_inst.arg[i]));
 		break;
 
 	default:
@@ -1168,6 +1241,10 @@ void print_arg_info(Arg_info * arg) {
 	case AT_LABEL_NAME:
 		printf("arg->type = AT_LABEL_NAME, arg->u.label_name = %s\n", arg->u.label_name);
 		break;
+
+    case AT_STRING:
+        printf("arg->type = AT_STRING, arg->u.string = %s\n", arg->u.string);
+        break;
 
 	default:
 		printf("arg->type = ILLEGAL\n");

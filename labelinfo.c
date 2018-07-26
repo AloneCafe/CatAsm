@@ -5,7 +5,7 @@ int is_unique(Label_info_table *table, char *label) {
 }
 
 void insert_new_map(Label_info_table *table, char *label, Dword addr) {
-	assert(strlen(label) < MAX_LABEL_LENGTH);
+	assert(strlen(label) < MAX_STRING_LENGTH);
 	assert(table->size < MAX_MAP_SIZE);
 	assert(is_unique(table, label));
 
