@@ -21,7 +21,8 @@
 #define IS_MINUS(ch) (ch == '-')
 #define IS_ALPHA(ch) ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
 #define IS_POUND(ch) (ch == '#')
-#define IS_SPACE(ch) (ch == ' ')
+#define IS_DOT(ch) (ch == '.')
+#define IS_SPACE(ch) (ch == ' ' || ch == '\t')
 #define IS_COMMA(ch) (ch == ',')
 #define IS_SQ(ch) (ch == '\'') // single quotation
 #define IS_DQ(ch) (ch == '\"') // double quotation

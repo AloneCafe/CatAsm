@@ -6,18 +6,25 @@
 typedef enum {
 	AT_NULL,
 	AT_REGISTER,
-	AT_INLINE_NUM,
-	AT_EXTEND_NUM,
+	AT_BYTE_NUM,
+	AT_WORD_NUM,
+	AT_DWORD_NUM,
 	AT_ADDRESS,
 	AT_NUM,
-	AT_LABEL_NAME
+	AT_LABEL_NAME,
+	AT_STRING
 }Arg_type;
 
 typedef struct {
-	char inst[10];
+	char inst[20];
 	int argnum;
-	Arg_type argtype[10];
+	Arg_type argtype[200];
 }Inst_map_info;
+
+typedef struct {
+	char inst[20];
+	Arg_type argtype[200];
+}Fake_inst_map_info;
 
 typedef struct {
 	Arg_type type;
@@ -64,7 +71,7 @@ typedef struct {
 	}u;
 }Row_info;
 
-extern Inst_map_info instinfo[];
+extern Inst_map_info inst_info[];
 
 int strcmpci(char *s1, char *s2);
 int get_inst_arg_num(char *inst);
