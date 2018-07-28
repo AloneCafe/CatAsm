@@ -365,6 +365,9 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 			else if (IS_SQ(ch[i])) {
 				state = 10;
 			}
+			else if (IS_DQ(ch[i])) {
+				state = 30;
+			}
 			else if (IS_SPACE(ch[i])) {
 			}
 			else if (IS_UNDERLINE(ch[i]) || IS_ALPHA(ch[i])) {
@@ -671,6 +674,37 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 0;
 			}
 			break;
+
+			case 30:
+				if (IS_TERMINATOR(ch[i])) {
+					sprintf(current_error, "string constant must be ended with double quotation \'\"\'");
+					PRINT_ERROR(current_error);
+					return 0;
+				}
+				else if (IS_DQ(ch[i])) {
+					*arg_p = 0;
+					arginfo->type = AT_STRING;
+					strcpy(arginfo->u.string, arg_buff);
+					state = 31;
+				}
+				else {
+					*(arg_p++) = ch[i];
+				}
+				break;
+
+			case 31:
+				if (IS_TERMINATOR(ch[i])) {
+					return 1;
+				}
+				else if (IS_SPACE(ch[i])) {
+
+				}
+				else {
+					sprintf(current_error, "illegal character \'%c\'", ch[i]);
+					PRINT_ERROR(current_error);
+					return 0;
+				}
+				break;
 		}
 	}
 }
@@ -698,6 +732,7 @@ int parse_line(char *ch, Row_info *row) {
 			}
 			else if (IS_DOT(ch[i])) {
 				// TODO fakecode
+				row->type = RT_FAKE_INSTRUCTION;
 				state = 10;
 			}
 			else if (IS_SPACE(ch[i])) {
@@ -995,7 +1030,7 @@ int parse_line(char *ch, Row_info *row) {
                 return 0;
             }
 		    break;
-            // TODO
+
         case 11:
             arg_p = arg_buff;
             if (IS_TERMINATOR(ch[i])) {
@@ -1007,7 +1042,6 @@ int parse_line(char *ch, Row_info *row) {
                     *arg_p = 0;
                     row->type = RT_FAKE_INSTRUCTION;
                     strcpy(row->u.fake_inst.name, inst_buff);
-                    // TODO parse arg
                     if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
                         return 0;
                     return 1;
@@ -1024,7 +1058,6 @@ int parse_line(char *ch, Row_info *row) {
                 *arg_p = 0;
                 row->type = RT_FAKE_INSTRUCTION;
                 strcpy(row->u.fake_inst.name, inst_buff);
-                // TODO parse arg
                 if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
                     return 0;
                 argnum++;
@@ -1034,7 +1067,6 @@ int parse_line(char *ch, Row_info *row) {
                 *arg_p = 0;
                 row->type = RT_FAKE_INSTRUCTION;
                 strcpy(row->u.fake_inst.name, inst_buff);
-                // TODO parse arg
                 if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
                     return 0;
                 return 1;
@@ -1062,7 +1094,7 @@ int parse_line(char *ch, Row_info *row) {
 				return 0;
 			}
 			break;
-
+			// TODO
 		case 31:
 			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
 				*(inst_p++) = ch[i];
