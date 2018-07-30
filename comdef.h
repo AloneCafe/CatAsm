@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#define VERSION "0.2.1"
+#define VERSION "0.6.2"
 
 #define MAX_STRING_LENGTH 512
 #define MAX_MAP_SIZE 10000

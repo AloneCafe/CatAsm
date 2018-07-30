@@ -1,17 +1,14 @@
 #include "asminfo.h"
 
-Fake_inst_map_info fake_inst_info[] = {
-{ "byte", { AT_BYTE_NUM }},
-{ "word", { AT_WORD_NUM }},
-{ "dword", { AT_DWORD_NUM }},
-{ "bytes", { AT_NUM, AT_BYTE_NUM }},
-{ "words", { AT_NUM, AT_WORD_NUM }},
-{ "dwords", { AT_NUM, AT_DWORD_NUM }},
-{ "string", { AT_STRING }},
-{ "strings", { AT_NUM, AT_STRING }}
-};
-
 Inst_map_info inst_info[] = {
+{ ".byte", -1, { AT_BYTE_NUM }},
+{ ".word", -1, { AT_WORD_NUM }},
+{ ".dword", -1, { AT_DWORD_NUM }},
+{ ".bytes", -1, { AT_NUM, AT_BYTE_NUM }},
+{ ".words", -1, { AT_NUM, AT_WORD_NUM }},
+{ ".dwords", -1, { AT_NUM, AT_DWORD_NUM }},
+{ ".string", -1, { AT_STRING }},
+{ ".strings", -1, { AT_NUM, AT_STRING }},
 { "nop", 0 },
 { "copy", 2, { AT_REGISTER, AT_REGISTER }},
 { "copy", 2, { AT_REGISTER, AT_DWORD_NUM }},

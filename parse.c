@@ -162,183 +162,400 @@ int str_to_reg(char *ch, Byte *reg) {
 	return 1;
 }
 
-int escape_str_to_num(char *ch, int *res) {
-	int state = 0, i;
-	char numstr[100], *numstr_p = numstr;
+int escape_char_to_char(char *ch, char *res) {
+    int state = 0, i, mcwflag = 0;
+    char str[100], *str_p = str;
+    char res_buff[100], *res_p = res_buff;
+    int num;
 
-	assert(ch);
-	assert(res);
+    assert(ch);
+    assert(res);
 
-	for (i = 0; ; i++) {
-		printf("char_state = %d\n", state);
-		switch (state) {
-		case 0:
-			switch (ch[i]) {
-			case 'a': *res = 7; state = 1; break;
-			case 'b': *res = 8; state = 1; break;
-			case 'f': *res = 12; state = 1; break;
-			case 'n': *res = 10; state = 1; break;
-			case 'r': *res = 13; state = 1; break;
-			case 't': *res = 9; state = 1; break;
-			case '\\': *res = 92; state = 1; break;
-			case '?': *res = 63; state = 1; break;
-			case '\'': *res = 39; state = 1; break;
-			case '\"': *res = 34; state = 1; break;
-			default: 
-				if (ch[i] == '0') {
-					*(numstr_p++) = ch[i];
-					state = 10;
-				}
-				else if (ch[i] >= '1' && ch[i] <= '7') {
-					*(numstr_p++) = ch[i];
-					state = 20;
-				}
-				else if (ch[i] == 'x') {
-					state = 30;
-				}
-				else {
-					*res = ch[i];
-					state = 2;
-				}
-				break;
-			}
-			break;
+    for (i = 0; ; i++) {
+        printf("char_state = %d\n", state);
+        switch (state) {
+            case 0:
+                if (i && !mcwflag) {
+                    sprintf(current_warning, "multi-character character constant");
+                    PRINT_WARNING(current_warning);
+                    mcwflag = 1;
+                }
+                str_p = str;
+                if (IS_BS(ch[i])) {
+                    state = 1;
+                } else if (IS_TERMINATOR(ch[i])) {
+                    *res = *(res_p - 1);
+                    return 1;
+                } else {
+                    *(res_p++) = ch[i];
+                }
+                break;
 
-		case 1:
-			if (IS_TERMINATOR(ch[i])) {
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 1:
+                switch (ch[i]) {
+                    case 'a': *(res_p++) = 7; state = 0; break;
+                    case 'b': *(res_p++) = 8; state = 0; break;
+                    case 'f': *(res_p++) = 12; state = 0; break;
+                    case 'n': *(res_p++) = 10; state = 0; break;
+                    case 'r': *(res_p++) = 13; state = 0; break;
+                    case 't': *(res_p++) = 9; state = 0; break;
+                    case '\\': *(res_p++) = 92; state = 0; break;
+                    case '?': *(res_p++) = 63; state = 0; break;
+                    case '\'': *(res_p++) = 39; state = 0; break;
+                    case '\"': *(res_p++) = 34; state = 0; break;
+                    default:
+                        if (ch[i] == '0') {
+                            *(str_p++) = ch[i];
+                            state = 10;
+                        }
+                        else if (ch[i] >= '1' && ch[i] <= '7') {
+                            *(str_p++) = ch[i];
+                            state = 20;
+                        }
+                        else if (ch[i] == 'x') {
+                            state = 30;
+                        }
+                        else {
+                            sprintf(current_warning, "unknown escape sequence \'\\%c\'", ch[i]);
+                            PRINT_WARNING(current_warning);
+                            *(res_p++) = ch[i];
+                            state = 0;
+                        }
+                        break;
+                }
+                break;
 
-		case 2:
-			if (IS_TERMINATOR(ch[i])) {
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 10:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 21;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 10:
-			if (ch[i] >= '0' && ch[i] <= '7') {
-				*(numstr_p++) = ch[i];
-				state = 21;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*res = 0;
-				return 1;
-			} 
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 20:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 21;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *(res_p++) = str[0];
+                    *res = *(res_p - 1);
+                    return 0;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 20:
-			if (ch[i] >= '0' && ch[i] <= '7') {
-				*(numstr_p++) = ch[i];
-				state = 21;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*res = numstr[0];
-				return 0;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 21:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 22;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 21:
-			if (ch[i] >= '0' && ch[i] <= '7') {
-				*(numstr_p++) = ch[i];
-				state = 22;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*numstr_p = 0;
-				if (oct_str_to_num(numstr, res) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 22:
+                if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 22:
-			if (IS_TERMINATOR(ch[i])) {
-				*numstr_p = 0;
-				if (oct_str_to_num(numstr, res) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 30:
+                if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
+                    *(str_p++) = ch[i];
+                    state = 31;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *(res_p++) = ch[i - 1];
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 30:
-			if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
-				*(numstr_p++) = ch[i];
-				state = 31;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*res = 'x';
-				return 0;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 31:
+                if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
+                    *(str_p++) = ch[i];
+                    state = 32;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
 
-		case 31:
-			if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
-				*(numstr_p++) = ch[i];
-				state = 32;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*numstr_p = 0;
-				if (hex_str_to_num(numstr, res) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
+            case 32:
+                if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res = *(res_p - 1);
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+        }
+    }
+}
 
-		case 32:
-			if (IS_TERMINATOR(ch[i])) {
-				*numstr_p = 0;
-				if (hex_str_to_num(numstr, res) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-		}
-	}
+int escape_string_to_string(char *ch, char *res) {
+    int state = 0, i;
+    char str[100], *str_p = str, *res_p = res;
+    int num;
+
+    assert(ch);
+    assert(res);
+
+    for (i = 0; ; i++) {
+        printf("char_state = %d\n", state);
+        switch (state) {
+            case 0:
+                str_p = str;
+                if (IS_BS(ch[i])) {
+                    state = 1;
+                } else if (IS_TERMINATOR(ch[i])) {
+                    *res_p = 0;
+                    return 1;
+                } else {
+                    *(res_p++) = ch[i];
+                }
+                break;
+
+            case 1:
+                switch (ch[i]) {
+                    case 'a': *(res_p++) = 7; state = 0; break;
+                    case 'b': *(res_p++) = 8; state = 0; break;
+                    case 'f': *(res_p++) = 12; state = 0; break;
+                    case 'n': *(res_p++) = 10; state = 0; break;
+                    case 'r': *(res_p++) = 13; state = 0; break;
+                    case 't': *(res_p++) = 9; state = 0; break;
+                    case '\\': *(res_p++) = 92; state = 0; break;
+                    case '?': *(res_p++) = 63; state = 0; break;
+                    case '\'': *(res_p++) = 39; state = 0; break;
+                    case '\"': *(res_p++) = 34; state = 0; break;
+                    default:
+                        if (ch[i] == '0') {
+                            *(str_p++) = ch[i];
+                            state = 10;
+                        }
+                        else if (ch[i] >= '1' && ch[i] <= '7') {
+                            *(str_p++) = ch[i];
+                            state = 20;
+                        }
+                        else if (ch[i] == 'x') {
+                            state = 30;
+                        }
+                        else {
+                            sprintf(current_warning, "unknown escape sequence \'\\%c\'", ch[i]);
+                            PRINT_WARNING(current_warning);
+                            *(res_p++) = ch[i];
+                            state = 0;
+                        }
+                        break;
+                }
+                break;
+
+            case 10:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 21;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 20:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 21;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *(res_p++) = str[0];
+                    *res_p = 0;
+                    return 0;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 21:
+                if (ch[i] >= '0' && ch[i] <= '7') {
+                    *(str_p++) = ch[i];
+                    state = 22;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 22:
+                if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (oct_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 30:
+                if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
+                    *(str_p++) = ch[i];
+                    state = 31;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *(res_p++) = ch[i - 1];
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 31:
+                if ((ch[i] >= '0' && ch[i] <= '9') || (ch[i] >= 'a' && ch[i] <= 'f') || (ch[i] >= 'A' && ch[i] <= 'F')) {
+                    *(str_p++) = ch[i];
+                    state = 32;
+                }
+                else if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+
+            case 32:
+                if (IS_TERMINATOR(ch[i])) {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *res_p = 0;
+                    return 1;
+                }
+                else {
+                    *str_p = 0;
+                    if (hex_str_to_num(str, &num) == 0)
+                        return 0;
+                    *(res_p++) = (char)num;
+                    *(res_p++) = ch[i];
+                    state = 0;
+                }
+                break;
+        }
+    }
 }
 
 int parse_arg(char *ch, Arg_info *arginfo) {
@@ -370,7 +587,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 			}
 			else if (IS_SPACE(ch[i])) {
 			}
-			else if (IS_UNDERLINE(ch[i]) || IS_ALPHA(ch[i])) {
+			else if (IS_UNDERLINE(ch[i]) || IS_ALPHA(ch[i]) || IS_DOT(ch[i])) {
 				*(arg_p++) = ch[i];
 				state = 20;
 			}
@@ -380,7 +597,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 0;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -429,7 +646,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -444,7 +661,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -467,7 +684,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 0;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -496,7 +713,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -511,17 +728,14 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
 			break;
 
 		case 10:
-			if (IS_BS(ch[i])) {
-				state = 13;
-			}
-			else if (IS_SQ(ch[i])) {
+			if (IS_SQ(ch[i])) {
 				sprintf(current_error, "illegal empty character constant");
 				PRINT_ERROR(current_error);
 				return 0;
@@ -547,9 +761,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 0;
 			}
 			else {
-				sprintf(current_error, "character constant must be only one character");
-				PRINT_ERROR(current_error);
-				return 0;
+                *(arg_p++) = ch[i];
 			}
 			break;
 
@@ -559,59 +771,12 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 			else if (IS_TERMINATOR(ch[i])) {
 				*arg_p = 0;
 				arginfo->type = AT_NUM;
-				arginfo->u.num = arg_buff[0];
+                if (escape_char_to_char(arg_buff, &(arginfo->u.num)) == 0)
+                    return 0;
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 13:
-			if (IS_SQ(ch[i])) {
-				sprintf(current_error, "back-slash \'\\\' is escape character identifier, if you want its normal character, try to use \"\\\\\" instead");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				sprintf(current_error, "character constant must be ended with single quotation \"'\"");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			else {
-				*(arg_p++) = ch[i];
-				state = 14;
-			}
-			break;
-
-		case 14:
-			if (IS_SQ(ch[i])) {
-				state = 15;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				sprintf(current_error, "character constant must be ended with single quotation \"'\"");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			else {
-				*(arg_p++) = ch[i];
-			}
-			break;
-
-		case 15:
-			if (IS_SPACE(ch[i])) {
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*arg_p = 0;
-				arginfo->type = AT_NUM;
-				if (escape_str_to_num(arg_buff, &(arginfo->u.num)) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -632,7 +797,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -652,7 +817,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -669,7 +834,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -684,7 +849,8 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 				else if (IS_DQ(ch[i])) {
 					*arg_p = 0;
 					arginfo->type = AT_STRING;
-					strcpy(arginfo->u.string, arg_buff);
+					if (escape_string_to_string(arg_buff, arginfo->u.string) == 0)
+					    return 0;
 					state = 31;
 				}
 				else {
@@ -700,7 +866,7 @@ int parse_arg(char *ch, Arg_info *arginfo) {
 
 				}
 				else {
-					sprintf(current_error, "illegal character \'%c\'", ch[i]);
+					sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 					PRINT_ERROR(current_error);
 					return 0;
 				}
@@ -726,14 +892,9 @@ int parse_line(char *ch, Row_info *row) {
 		printf("line_state = %d\n", state);
 		switch (state) {
 		case 0:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i])) {
+			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_DOT(ch[i])) {
 				*(label_or_inst_p++) = ch[i];
 				state = 1;
-			}
-			else if (IS_DOT(ch[i])) {
-				// TODO fakecode
-				row->type = RT_FAKE_INSTRUCTION;
-				state = 10;
 			}
 			else if (IS_SPACE(ch[i])) {
 			}
@@ -742,7 +903,7 @@ int parse_line(char *ch, Row_info *row) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -758,39 +919,23 @@ int parse_line(char *ch, Row_info *row) {
 				row->type = RT_LABEL;
 				strcpy(row->u.label.name, label_or_inst_buff);
 				state = 30;
-			} 
+			}
 			else if (IS_SPACE(ch[i])) {
 				*label_or_inst_p = 0;
-				argnum = get_inst_arg_num(label_or_inst_buff);
-				if (argnum != -1) {
-					row->type = RT_INSTRUCTION;
-					row->u.inst.argnum = argnum;
-					strcpy(row->u.inst.name, label_or_inst_buff);
-				}
+                row->type = RT_INSTRUCTION;
+                row->u.inst.argnum = argnum;
+                strcpy(row->u.inst.name, label_or_inst_buff);
 				state = 3;
 			}
 			else if (IS_TERMINATOR(ch[i])) {
 				*label_or_inst_p = 0;
-				argnum = get_inst_arg_num(label_or_inst_buff);
-				if (argnum == 0) {
-					row->type = RT_INSTRUCTION;
-					row->u.inst.argnum = argnum;
-					strcpy(row->u.inst.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-			}
+                row->type = RT_INSTRUCTION;
+                row->u.inst.argnum = argnum;
+                strcpy(row->u.inst.name, label_or_inst_buff);
+                return 1;
+            }
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -802,7 +947,6 @@ int parse_line(char *ch, Row_info *row) {
 			}
 			else if (IS_SPACE(ch[i])) {
 				*label_or_inst_p = 0;
-				argnum = get_inst_arg_num(label_or_inst_buff);
 				row->type = RT_INSTRUCTION;
 				row->u.inst.argnum = argnum;
 				strcpy(row->u.inst.name, label_or_inst_buff);
@@ -816,26 +960,13 @@ int parse_line(char *ch, Row_info *row) {
 			}
 			else if (IS_TERMINATOR(ch[i])) {
 				*label_or_inst_p = 0;
-				argnum = get_inst_arg_num(label_or_inst_buff);
-				if (argnum == 0) {
-					row->type = RT_INSTRUCTION;
-					row->u.inst.argnum = argnum;
-					strcpy(row->u.inst.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
+                row->type = RT_INSTRUCTION;
+                row->u.inst.argnum = argnum;
+                strcpy(row->u.inst.name, label_or_inst_buff);
+                return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -843,6 +974,7 @@ int parse_line(char *ch, Row_info *row) {
 
 		case 3:
 			if (IS_COLON(ch[i])) {
+                *label_or_inst_p = 0;
 				row->type = RT_LABEL;
 				strcpy(row->u.label.name, label_or_inst_buff);
 				state = 30;
@@ -850,164 +982,15 @@ int parse_line(char *ch, Row_info *row) {
 			else if (IS_SPACE(ch[i])) {
 			}
 			else if (IS_TERMINATOR(ch[i])) {
-				if (argnum == 0) {
-					row->type = RT_INSTRUCTION;
-					row->u.inst.argnum = argnum;
-					strcpy(row->u.inst.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", label_or_inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
+                *label_or_inst_p = 0;
+                row->type = RT_INSTRUCTION;
+                row->u.inst.argnum = argnum;
+                strcpy(row->u.inst.name, label_or_inst_buff);
+                return 1;
 			}
 			else {
 				*(arg_p++) = ch[i];
-				state = 4;
-			}
-			break;
-
-		case 4:
-			if (argnum == -1) {
-				sprintf(current_error, "illegal instruction \"%s\"", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			/*else if (argnum < 1) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}*/
-
-			if (IS_COMMA(ch[i])) {
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[0]) : &(row->u.label_inst.inst.arg[0])) == 0)
-					return 0;
-				arg_p = arg_buff;
-				state = 5;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				if (argnum > 1) {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[0]) : &(row->u.label_inst.inst.arg[0])) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				*(arg_p++) = ch[i];
-				continue;
-			}
-
-			if (argnum < 1) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 5:
-			if (argnum == -1) {
-				sprintf(current_error, "illegal instruction \"%s\"", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			/*else if (argnum < 2) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}*/
-			if (IS_COMMA(ch[i])) {
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[1]) : &(row->u.label_inst.inst.arg[1])) == 0)
-					return 0;
-				arg_p = arg_buff;
-				state = 6;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				if (argnum > 2) {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[1]) : &(row->u.label_inst.inst.arg[1])) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				*(arg_p++) = ch[i];
-				continue;
-			}
-
-			if (argnum < 2) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 6:
-			if (argnum == -1) {
-				sprintf(current_error, "illegal instruction \"%s\"", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			/*else if (argnum < 3) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}*/
-			if (IS_COMMA(ch[i])) {
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[2]) : &(row->u.label_inst.inst.arg[2])) == 0)
-					return 0;
-				state = 7;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*arg_p = 0;
-				if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[2]) : &(row->u.label_inst.inst.arg[2])) == 0)
-					return 0;
-				return 1;
-			}
-			else {
-				*(arg_p++) = ch[i];
-				continue;
-			}
-
-			if (argnum < 3) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 7:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
-				sprintf(current_error, "instruction \"%s\" includes too many arguments", row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			else if (IS_SPACE(ch[i])) {
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				sprintf(current_error, "the character \',\' must be followed by an argument");
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
+				state = 11;
 			}
 			break;
 
@@ -1020,32 +1003,53 @@ int parse_line(char *ch, Row_info *row) {
                 state = 11;
             }
             else if (IS_TERMINATOR(ch[i])) {
-                row->type = RT_FAKE_INSTRUCTION;
-                strcpy(row->u.fake_inst.name, inst_buff);
+                *inst_p = 0;
+                row->type |= RT_INSTRUCTION;
+				row->u.label_inst.inst.argnum = argnum;
+                strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name, row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
                 return 1;
             }
             else {
-                sprintf(current_error, "illegal character \'%c\'", ch[i]);
+                sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
                 PRINT_ERROR(current_error);
                 return 0;
             }
 		    break;
 
         case 11:
-            arg_p = arg_buff;
             if (IS_TERMINATOR(ch[i])) {
                 if (argnum == 0) {
-                    row->type = RT_FAKE_INSTRUCTION;
-                    strcpy(row->u.fake_inst.name, inst_buff);
+                    *arg_p = 0;
+                    row->type |= RT_INSTRUCTION;
+                    if (row->type == RT_INSTRUCTION)
+                        row->u.inst.argnum = argnum + 1;
+                    else row->u.label_inst.inst.argnum = argnum + 1;
+                    strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name,
+                           row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
                     return 1;
                 } else {
                     *arg_p = 0;
-                    row->type = RT_FAKE_INSTRUCTION;
-                    strcpy(row->u.fake_inst.name, inst_buff);
-                    if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                    row->type |= RT_INSTRUCTION;
+                    if (row->type == RT_INSTRUCTION)
+                        row->u.inst.argnum = argnum + 1;
+                    else row->u.label_inst.inst.argnum = argnum + 1;
+                    strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name,
+                           row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
+                    if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[argnum])
+                                                                        : &(row->u.label_inst.inst.arg[argnum])) == 0)
                         return 0;
                     return 1;
                 }
+            }
+            else if (IS_COMMA(ch[i])) {
+                *arg_p = 0;
+                row->type |= RT_INSTRUCTION;
+                if (row->type == RT_INSTRUCTION) row->u.inst.argnum = argnum; else row->u.label_inst.inst.argnum = argnum;
+                strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name, row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
+                if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[argnum]) : &(row->u.label_inst.inst.arg[argnum])) == 0)
+                    return 0;
+                argnum++;
+                arg_p = arg_buff;
             }
             else {
                 *(arg_p++) = ch[i];
@@ -1056,18 +1060,21 @@ int parse_line(char *ch, Row_info *row) {
         case 12:
             if (IS_COMMA(ch[i])) {
                 *arg_p = 0;
-                row->type = RT_FAKE_INSTRUCTION;
-                strcpy(row->u.fake_inst.name, inst_buff);
-                if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                row->type |= RT_INSTRUCTION;
+                if (row->type == RT_INSTRUCTION) row->u.inst.argnum = argnum; else row->u.label_inst.inst.argnum = argnum;
+                strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name, row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
+                if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[argnum]) : &(row->u.label_inst.inst.arg[argnum])) == 0)
                     return 0;
                 argnum++;
+                arg_p = arg_buff;
                 state = 11;
             }
             else if (IS_TERMINATOR(ch[i])) {
                 *arg_p = 0;
-                row->type = RT_FAKE_INSTRUCTION;
-                strcpy(row->u.fake_inst.name, inst_buff);
-                if (parse_arg(arg_buff, &(row->u.fake_inst.arg[argnum])) == 0)
+                row->type |= RT_INSTRUCTION;
+                if (row->type == RT_INSTRUCTION) row->u.inst.argnum = argnum + 1; else row->u.label_inst.inst.argnum = argnum + 1;
+                strcpy(row->type == RT_INSTRUCTION ? row->u.inst.name : row->u.label_inst.inst.name, row->type == RT_INSTRUCTION ? label_or_inst_buff : inst_buff);
+                if (parse_arg(arg_buff, row->type == RT_INSTRUCTION ? &(row->u.inst.arg[argnum]) : &(row->u.label_inst.inst.arg[argnum])) == 0)
                     return 0;
                 return 1;
             }
@@ -1077,9 +1084,9 @@ int parse_line(char *ch, Row_info *row) {
             break;
 
 		case 30:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i])) {
+			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_DOT(ch[i])) {
 				*(inst_p++) = ch[i];
-				state = 31;
+				state = 10;
 			}
 			else if (IS_SPACE(ch[i])) {
 			}
@@ -1089,126 +1096,7 @@ int parse_line(char *ch, Row_info *row) {
 				return 1;
 			}
 			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-			// TODO
-		case 31:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
-				*(inst_p++) = ch[i];
-				state = 32;
-			}
-			else if (IS_SPACE(ch[i])) {
-				*inst_p = 0;
-				argnum = get_inst_arg_num(inst_buff);
-				if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				state = 33;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*inst_p = 0;
-				argnum = get_inst_arg_num(inst_buff);
-				if (argnum == 0) {
-					row->type = RT_LABEL_AND_INSTRUCTION;
-					row->u.label_inst.inst.argnum = argnum;
-					strcpy(row->u.label_inst.inst.name, inst_buff);
-					strcpy(row->u.label_inst.label.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-			}
-			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 32:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
-				*(inst_p++) = ch[i];
-			}
-			else if (IS_SPACE(ch[i])) {
-				*inst_p = 0;
-				argnum = get_inst_arg_num(inst_buff);
-				if (argnum != -1) {
-					row->type = RT_LABEL_AND_INSTRUCTION;
-					row->u.label_inst.inst.argnum = argnum;
-					strcpy(row->u.label_inst.inst.name, inst_buff);
-					strcpy(row->u.label_inst.label.name, label_or_inst_buff);
-				}
-				state = 33;
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				*inst_p = 0;
-				argnum = get_inst_arg_num(inst_buff);
-				if (argnum == 0) {
-					row->type = RT_LABEL_AND_INSTRUCTION;
-					row->u.label_inst.inst.argnum = argnum;
-					strcpy(row->u.label_inst.inst.name, inst_buff);
-					strcpy(row->u.label_inst.label.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-			}
-			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
-				PRINT_ERROR(current_error);
-				return 0;
-			}
-			break;
-
-		case 33:
-			if (IS_ALPHA(ch[i]) || IS_UNDERLINE(ch[i]) || IS_NUM(ch[i])) {
-				*(arg_p++) = ch[i];
-				state = 4;
-			}
-			else if (IS_SPACE(ch[i])) {
-			}
-			else if (IS_TERMINATOR(ch[i])) {
-				if (argnum == 0) {
-					row->type = RT_LABEL_AND_INSTRUCTION;
-					row->u.label_inst.inst.argnum = argnum;
-					strcpy(row->u.label_inst.inst.name, inst_buff);
-					strcpy(row->u.label_inst.label.name, label_or_inst_buff);
-					return 1;
-				}
-				else if (argnum == -1) {
-					sprintf(current_error, "illegal instruction \"%s\"", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-				else {
-					sprintf(current_error, "instruction \"%s\" includes too few arguments", inst_buff);
-					PRINT_ERROR(current_error);
-					return 0;
-				}
-			}
-			else {
-				sprintf(current_error, "illegal character \'%c\'", ch[i]);
+				sprintf(current_error, "syntax error near character \'%c\'", ch[i]);
 				PRINT_ERROR(current_error);
 				return 0;
 			}
@@ -1240,13 +1128,6 @@ void print_row_info(Row_info * row) {
 
 	case RT_NULL:
 		printf("row->type = RT_NULL\n");
-		break;
-
-	case RT_FAKE_INSTRUCTION:
-		printf("row->type = RT_FAKE_INSTRUCTION\n");
-        printf("row->u.fake_inst.name = %s\n", row->u.fake_inst.name);
-        for (i = 0; row->u.fake_inst.arg[i].type != AT_NULL; i++)
-            print_arg_info(&(row->u.fake_inst.arg[i]));
 		break;
 
 	default:

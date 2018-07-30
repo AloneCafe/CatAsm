@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 	int i;
 
 	if (argc == 1) {
-		fprintf(stdout, "Cat Microcomputer Assembler\n" "Use \"-h\" option to print help information.\n");
+		fprintf(stdout, "Cat Microcomputer Assembler " "(Built at " __DATE__ " " __TIME__ ")\n" "Use \"-h\" option to print help information.\n");
 		return 1;
 	}
 
@@ -28,12 +28,12 @@ int main(int argc, char **argv) {
 					break;
 
 				case 'h':
-					fprintf(stdout, "Cat Microcomputer Assembler\n" "USAGE: catasm [option] <inputs>\n" "OPTIONS:\n" "-o\tSet output binary file path\n" "-h\tPrint this help information\n");
-					break;
+					fprintf(stdout, "Cat Microcomputer Assembler " "(Built at " __DATE__ " " __TIME__ ")\n" "USAGE: catasm [option] <inputs>\n" "OPTIONS:\n" "-o\tSet output binary file path\n" "-h\tPrint this help information\n");
+					return 0;
 
 				case 'v':
-					fprintf(stdout, "Cat Microcomputer Assembler %s\n", VERSION);
-					break;
+					fprintf(stdout, "Cat Microcomputer Assembler " "(Built at " __DATE__ " " __TIME__ ")\n" "version: %s\n", VERSION);
+					return 0;
 
 				default:
 					fprintf(stderr, "Error: unrecognized option \"%s\" !\n", argv[i]);

@@ -22,11 +22,6 @@ typedef struct {
 }Inst_map_info;
 
 typedef struct {
-	char inst[20];
-	Arg_type argtype[200];
-}Fake_inst_map_info;
-
-typedef struct {
 	Arg_type type;
 	union {
 		Byte reg;
@@ -55,16 +50,10 @@ typedef struct {
 	Instruction inst;
 }Label_instruction;
 
-typedef struct {
-	char name[20];
-	Arg_info arg[100];
-}Fake_instruction;
-
 typedef enum {
 	RT_NULL,
 	RT_LABEL,
 	RT_INSTRUCTION,
-	RT_FAKE_INSTRUCTION,
 	RT_LABEL_AND_INSTRUCTION
 }Row_type;
 
@@ -74,12 +63,10 @@ typedef struct {
 		Instruction inst;
 		Label label;
 		Label_instruction label_inst;
-		Fake_instruction fake_inst;
 	}u;
 }Row_info;
 
 extern Inst_map_info inst_info[];
-extern Fake_inst_map_info fake_inst_info[];
 
 int strcmpci(char *s1, char *s2);
 int get_inst_arg_num(char *inst);
